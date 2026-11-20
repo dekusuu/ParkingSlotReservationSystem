@@ -1,0 +1,24 @@
+<div class="page-intro">
+  <div>
+    <h2>Payments</h2>
+    <p>Parking fees are paid at the parking office and recorded by staff. There is no online payment.</p>
+  </div>
+</div>
+
+<%- include('partials/unread-banner') %>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-6"><%- include('partials/stat-card', { label: 'Estimated for upcoming', value: peso(pendingEstimates), hint: 'Finalized after your stay', icon: 'bi-hourglass-split', tone: 'blue' }) %></div>
+  <div class="col-md-6"><%- include('partials/stat-card', { label: 'Total paid', value: peso(totalPaid), hint: 'Valid recorded payments', icon: 'bi-cash-coin', tone: 'green' }) %></div>
+</div>
+
+<div class="section-title"><h3>Payment history</h3></div>
+<%- include('partials/data-table', {
+  caption: 'Recorded payments',
+  columns: [{ label: 'Receipt' }, { label: 'Booking' }, { label: 'Paid on' }, { label: 'Method' }, { label: 'Amount', align: 'end' }, { label: 'Status' }, { label: '' }],
+  rows: rows,
+  rowPartial: 'partials/rows/driver-payment-row',
+  pager: pager,
+  noun: 'payments',
+  empty: { icon: 'bi-receipt', title: 'No payments recorded', text: 'When staff record a payment for your parking, the receipt will appear here.' }
+}) %>

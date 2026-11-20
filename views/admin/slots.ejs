@@ -1,0 +1,48 @@
+<div class="page-intro">
+  <div>
+    <h2>Parking Slots</h2>
+    <p>The parking layout is fixed. Manage how slots operate: take a slot out of service or return it to service. Slots with upcoming reservations cannot be taken out of service until those bookings are cancelled.</p>
+  </div>
+</div>
+
+<%- include('partials/filter-toolbar', {
+  formId: 'slotFilter',
+  action: '/admin/slots',
+  hideSubmit: true,
+  toolbarClass: 'filter-bar mb-3',
+  fields: [
+    { type: 'hidden', name: 'zone', value: filters.zone },
+    { type: 'search', name: 'q', label: 'Search slot code or note', value: filters.q, placeholder: 'e.g. ' + (mapSlots[0] ? mapSlots[0].code : 'MB-05') },
+    { type: 'select', name: 'status', label: 'Status', value: filters.status, options: [{ value: '', label: 'Any status' }].concat(statusOptions) },
+    { type: 'select', name: 'type', label: 'Slot type', value: filters.type, options: [{ value: '', label: 'Any type' }].concat(slotTypes.map(function (t) { return { value: t.code, label: t.label }; })) }
+  ]
+}) %>
+
+<nav class="nav-pills-tabs mb-3" aria-label="Filter by zone">
+  <% const keepFilters = ['q', 'status', 'type'].filter(function (k) { return filters[k]; }).map(function (k) { return '&' + k + '=' + encodeURIComponent(filters[k]); }).join(''); %>
+  <% zones.forEach(function (z) { %>
+    <a href="/admin/slots?zone=<%= z.id %><%= keepFilters %>" data-zone-link="<%= z.id %>" class="<%= filters.zone === z.id ? 'active' : '' %>" <%- filters.zone === z.id ? 'aria-current="page"' : '' %>>
+      <%= z.name %> <span class="count" data-zone-count><%= z.shown_count %></span><% if (!z.is_active) { %> <span class="small">(inactive)</span><% } %>
+    </a>
+  <% }) %>
+</nav>
+<script type="application/json" id="zoneSlots"><%- JSON.stringify(zoneSlots).replace(/</g, '\\u003c') %></script>
+<script type="application/json" id="parkedVehicles"><%- JSON.stringify(parkedVehicles).replace(/</g, '\\u003c') %></script>
+
+<% const activeZone = zones.find(function (z) { return z.id === filters.zone; }); %>
+<% if (activeZone) { %>
+  <% if (mapSlots.length) { %>
+    <%- include('partials/lot-defs') %>
+    <section class="map-card mb-3" aria-label="Lot map for <%= activeZone.name %>" data-admin-slot-map>
+      <%- include('partials/parking-map', { zone: zone, slots: mapSlots, selectedSlotId: null, linkAll: true }) %>
+      <div class="map-legend">
+        <span class="lg"><span class="swatch s-available"></span> Available</span>
+        <span class="lg"><span class="swatch s-reserved"></span> Reserved now</span>
+        <span class="lg"><span class="swatch s-occupied"></span> Occupied</span>
+        <span class="lg"><span class="swatch s-maintenance"></span> Out of Service</span>
+        <span class="lg" data-filter-count<%- filtering ? '' : ' hidden' %>><%= counts.total %> of <%= mapSlots.length %> slots match the filters</span>
+        <span class="map-counts">Choose a slot to change its status, notes or rate.</span>
+      </div>
+    </section>
+  <% } %>
+<% } %>

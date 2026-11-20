@@ -1,0 +1,110 @@
+<div class="page-intro">
+  <div>
+    <h2><%= editing ? 'Edit vehicle' : 'My Vehicles' %></h2>
+    <p>Staff match your plate number at check-in, so keep these details accurate.</p>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="table-wrap">
+      <% if (!vehicles.length) { %>
+        <%- include('partials/empty-state', { icon: 'bi-car-front', title: 'No vehicles yet', text: 'Add a vehicle using the form to start reserving parking.' }) %>
+      <% } else { %>
+        <div class="table-responsive">
+          <table class="table table-stack">
+            <caption class="visually-hidden">Your registered vehicles</caption>
+            <thead><tr><th scope="col">Plate</th><th scope="col">Type</th><th scope="col">Vehicle</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead>
+            <tbody>
+              <% vehicles.forEach(function (v) { %>
+                <tr>
+                  <td data-label="Plate"><span class="plate"><%= v.plate_number %></span></td>
+                  <td data-label="Type"><i class="<%= vehicleIcon(v.vehicle_type) %> me-1" aria-hidden="true"></i><%= titleCase(v.vehicle_type) %></td>
+                  <td data-label="Vehicle"><%= vehicleLabel(v) %><% if (v.color) { %><span class="sub"><%= v.color %></span><% } %></td>
+                  <td data-label="" class="text-end">
+                    <div class="table-actions">
+                      <a class="btn btn-sm btn-outline-secondary" href="/driver/vehicles/<%= v.id %>/edit<%= pager.page > 1 ? '?page=' + pager.page : '' %>" aria-label="Edit <%= v.plate_number %>">Edit</a>
+                      <form method="post" action="/driver/vehicles/<%= v.id %>/delete" data-confirm="Remove <%= v.plate_number %> from your vehicles? Past reservation history is kept." data-confirm-title="Remove vehicle" data-confirm-label="Remove" data-confirm-tone="danger">
+                        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                        <button class="btn btn-sm btn-outline-danger" type="submit" aria-label="Remove <%= v.plate_number %>">Remove</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+        <%- include('partials/pagination', { pager: pager, baseQuery: {}, noun: 'vehicles' }) %>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <section class="summary-card">
+      <div class="summary-head"><h3><%= editing ? 'Update details' : 'Add a vehicle' %></h3></div>
+      <div class="p-3">
+        <%
+          // Manufacturer and model are dropdowns from the catalogue, each with an "Other" choice that turns the dropdown into a text box in the same place.
+          // A saved name that is not in the catalogue (typed in, or from before the catalogue) shows as Other + its text.
+          const OTHER = vehicleCatalog.OTHER;
+          const vType = typeOptions.some(function (o) { return o.value === values.vehicle_type; }) ? values.vehicle_type : 'car';
+          let makeSel = values.make || '';
+          let makeOther = values.make_other || '';
+          if (makeSel && makeSel !== OTHER) {
+            const found = vehicleCatalog.findManufacturer(vType, makeSel);
+            if (found) makeSel = found;
+            else { makeOther = makeSel; makeSel = OTHER; }
+          }
+          let modelSel = values.model || '';
+          let modelOther = values.model_other || '';
+          if (modelSel && modelSel !== OTHER) {
+            const found = makeSel && makeSel !== OTHER && vehicleCatalog.findModel(vType, makeSel, modelSel);
+            if (found) modelSel = found;
+            else { modelOther = modelSel; modelSel = OTHER; }
+          }
+          const makeOptions = [{ value: '', label: 'Choose a manufacturer' }]
+            .concat(vehicleCatalog.manufacturers(vType).map(function (m) { return { value: m, label: m }; }), [{ value: OTHER, label: 'Other' }]);
+          const modelOptions = [{ value: '', label: !makeSel ? 'Choose a manufacturer first' : makeSel === OTHER ? 'No model' : 'Choose a model' }]
+            .concat(makeSel && makeSel !== OTHER ? vehicleCatalog.models(vType, makeSel).map(function (m) { return { value: m, label: m }; }) : [], makeSel ? [{ value: OTHER, label: 'Other' }] : []);
+        %>
+        <form method="post" action="<%= editing ? '/driver/vehicles/' + editing.id : '/driver/vehicles' %>" novalidate data-vehicle-form>
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <div class="row g-3">
+            <%- include('partials/form-field', { name: 'plate_number', label: 'Plate number', value: values.plate_number, errors: errors, required: true, placeholder: 'ABC 1234', maxlength: 12, attrs: { style: 'text-transform:uppercase', 'data-plate-max': vehicleCatalog.PLATE_MAX } }) %>
+            <%- include('partials/form-field', { name: 'vehicle_type', label: 'Vehicle type', type: 'select', value: vType, errors: errors, options: typeOptions, required: true }) %>
+            <% [
+              { name: 'make', label: 'Manufacturer', sel: makeSel, other: makeOther, options: makeOptions, disabled: false, placeholder: 'Type the manufacturer' },
+              { name: 'model', label: 'Model', sel: modelSel, other: modelOther, options: modelOptions, disabled: !makeSel, placeholder: 'Type the model' }
+            ].forEach(function (f) {
+              const typing = f.sel === OTHER;
+              const err = errors[f.name] || errors[f.name + '_other'];
+            %>
+            <div class="col-sm-6">
+              <label class="form-label" for="f-<%= f.name %><%= typing ? '_other' : '' %>"><%= f.label %></label>
+              <select class="form-select<%= errors[f.name] ? ' is-invalid' : '' %><%= typing ? ' d-none' : '' %>" id="f-<%= f.name %>" name="<%= f.name %>" <%= f.disabled ? 'disabled' : '' %> data-vehicle-<%= f.name %>>
+                <% f.options.forEach(function (o) { %>
+                  <option value="<%= o.value %>" <%= String(o.value) === String(f.sel) ? 'selected' : '' %>><%= o.label %></option>
+                <% }) %>
+              </select>
+              <div class="input-group<%= typing ? '' : ' d-none' %>" data-other-group="<%= f.name %>">
+                <input class="form-control<%= errors[f.name + '_other'] ? ' is-invalid' : '' %>" type="text" id="f-<%= f.name %>_other" name="<%= f.name %>_other" value="<%= f.other %>"
+                       placeholder="<%= f.placeholder %>" maxlength="40" autocomplete="off" data-other-for="<%= f.name %>">
+                <button class="btn btn-outline-secondary" type="button" data-other-back="<%= f.name %>" title="Choose from the list" aria-label="Choose <%= f.label.toLowerCase() %> from the list"><i class="bi bi-list-ul" aria-hidden="true"></i></button>
+              </div>
+              <% if (err) { %><div class="invalid-feedback d-block" id="f-<%= f.name %>-error"><%= err %></div><% } %>
+            </div>
+            <% }) %>
+            <%# A saved colour that is not on the list (typed in before the list) is left unselected, so a new one is chosen. %>
+            <%- include('partials/form-field', { name: 'color', label: 'Color', type: 'select', value: vehicleCatalog.findColor(values.color) || '', errors: errors,
+                  options: [{ value: '', label: 'Choose a colour' }].concat(vehicleCatalog.COLORS.map(function (c) { return { value: c, label: c }; })) }) %>
+            <div class="col-12 d-flex gap-2">
+              <button class="btn btn-primary" type="submit"><i class="bi bi-<%= editing ? 'check2' : 'plus-lg' %>" aria-hidden="true"></i> <%= editing ? 'Save changes' : 'Add vehicle' %></button>
+              <% if (editing) { %><a class="btn btn-outline-secondary" href="/driver/vehicles<%= pager.page > 1 ? '?page=' + pager.page : '' %>">Cancel</a><% } %>
+            </div>
+          </div>
+        </form>
+      </div>
+    </section>
+  </div>
+</div>

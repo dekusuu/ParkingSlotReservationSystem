@@ -1,0 +1,20 @@
+# dependencies
+node_modules/
+
+# local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# logs, OS and editor files
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+coverage/
+*.zip
+
+# generated e-mail previews (scripts/mail-preview.js)
+data/mail-preview/
